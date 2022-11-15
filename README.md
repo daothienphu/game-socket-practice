@@ -1,1 +1,1 @@
-# game-socket-practice
+# Game: Who wants to be a millionaire?
