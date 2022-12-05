@@ -2,7 +2,7 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>D:\IP\socket-game\SocketGame\x64\Debug\SocketGame.exe</FullPath>
+      <FullPath>D:\IP\game-socket-practice\x64\Debug\SocketGame.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />
