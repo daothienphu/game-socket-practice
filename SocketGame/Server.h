@@ -93,10 +93,6 @@ namespace Server {
 			cout << setw(10) << Users[i].username << " | " << setw(10) << Users[i].answer << " | " << Users[i].currentPos << endl;
 		}*/
 	}
-	bool SomeoneWon() {
-
-		return false;
-	}
 
 	//Network func
 	void LaunchServer() {
@@ -213,7 +209,7 @@ namespace Server {
 
 						packet.clear();
 						packet << "Game" << "UpdateUserAns" << ansChar;
-						if (currentTurnUser >= 2) {
+						if (currentTurn >= 2) {
 							packet << ansKeyword;
 						}
 						Broadcast(packet);
@@ -249,7 +245,7 @@ namespace Server {
 			Broadcast(packet);
 
 			packet.clear();
-			packet << "Game" << "UpdatePoint" << Users[currentTurnUser].currentPoint;
+			packet << "Game" << "UpdatePoint" << to_string(Users[currentTurnUser].currentPoint);
 			sock.send(packet, Users[currentTurnUser].ip, Users[currentTurnUser].port);
 			packet.clear();
 		}
@@ -257,39 +253,59 @@ namespace Server {
 		packet << "Game" << "UpdateKeyword" << to_string(currentKeyword.length()) << currentKeywordGuessed << currentClue;
 		Broadcast(packet);
 		
-		
-		
+		cout << "check keyword" << endl;
+		if (currentTurn >= 2) {
+			if (Users[currentTurnUser].answerKeyword == currentKeyword) {
+				packet.clear();
+				Users[currentTurnUser].currentPoint += 5;
+				packet << "Game" << "UpdatePoint" << to_string(Users[currentTurnUser].currentPoint);
+				sock.send(packet, Users[currentTurnUser].ip, Users[currentTurnUser].port);
+				
+				packet.clear();
+				packet << "Game" << "UpdateUserKeywordResult" << "Right";
+				Broadcast(packet);
+
+				packet.clear();
+				packet << "Game" << "End" << "Win";
+				sock.send(packet, Users[currentTurnUser].ip, Users[currentTurnUser].port);
+				packet.clear();
+
+				for (int i = 0; i < Users.size(); ++i) {
+					if (i != currentTurnUser) {
+						packet.clear();
+						packet << "Game" << "End" << "Lose";
+						sock.send(packet, Users[i].ip, Users[i].port);
+					}
+				}
+				
+				gameState = GAME_END;
+				return;
+			}
+			else {
+				packet.clear();
+				packet << "Game" << "UpdateUserKeywordResult" << "Wrong";
+				Broadcast(packet);
+
+				packet.clear();
+				packet << "Game" << "End" << "Lose";
+				sock.send(packet, Users[currentTurnUser].ip, Users[currentTurnUser].port);
+				packet.clear();
+
+				Users.erase(Users.begin() + currentTurnUser);
+			}
+		}
+		cout << "after check" << endl;
 		if (!guessedCorrect) {
 			currentTurnUser = (currentTurnUser + 1) % Users.size();
 		}
 
 		gameState = NEW_ROUND;
 
-		//check if someone lost the game
-		//for (int i = 0; i < Users.size(); ++i) {
-		//	if (Users[i].wrongAmount >= 3) {
-		//		packet.clear();
-		//		packet << "Game" << "End" << "Lose";
-		//		sock.send(packet, Users[i].ip, Users[i].port);
-		//		packet.clear();
-		//		Users.erase(Users.begin() + i);
-		//		break;
-		//	}
-		//}
-
-		//PrintCurrentProgress();
-
-		//if (SomeoneWon()) {
-		//	gameState = GAME_END;
-		//}
-		//else {
-		//	gameState = NEW_ROUND;
-		//}
+		currentTurn++;
 	}
 
 	void GameEnd() {
 		cout << "Game ended";
-
 	}
 
 	void MainLoop() {

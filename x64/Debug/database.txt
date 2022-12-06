@@ -3,5 +3,5 @@ python
 One of the most popular programming languages.
 c++
 A programming language that is better than C.
-cocos creator
+cocoscreator
 A game engine much like Unity3D, but retarded.

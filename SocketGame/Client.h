@@ -146,6 +146,16 @@ namespace Client {
 						cout << "User " << currentTurnUsername << " guessed right" << endl;
 					}
 				}
+				else if (status == "UpdateUserKeywordResult") {
+					string verdict;
+					packet >> verdict;
+					if (verdict == "Wrong") {
+						cout << "User " << currentTurnUsername << " guessed keyword wrong and got eliminated" << endl;
+					}
+					else if (verdict == "Right") {
+						cout << "User " << currentTurnUsername << " guessed keyword right" << endl;
+					}
+				}
 				else if (status == "UpdateKeyword") {
 					string len;
 					packet >> len >> keywordGuessed >> clue;
