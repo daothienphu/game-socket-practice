@@ -1,5 +1,13 @@
 #pragma once
 
+// user data: points
+// server read data from database.txt to get some keywords and clues.
+// when game load:
+// key word 
+
+
+
+
 namespace Server {
 	enum GameState {
 		RECEIVE_REGISTRATION,
@@ -24,36 +32,34 @@ namespace Server {
 	chrono::time_point<chrono::system_clock> launchTime;
 
 	//Game vars
-	int raceLength = 3;
-	int num1;
-	int num2;
-	string operation;
 	GameState gameState;
 	int answer;
-	int receivedOrder = 0;
-
-	//Network func
-	void LaunchServer() {
-		ip = IpAddress::getLocalAddress();
-		port = sock.getLocalPort();
-		sock.bind(port); // first bind gives erroneous port 0 
-		port = sock.getLocalPort();
-		sock.bind(port); // normal port
-
-		cout << ip.toString() << endl << port << endl; // ip / port
-		launchTime = chrono::system_clock::now();
-		gameState = RECEIVE_REGISTRATION;
-	}
-	void Broadcast(Packet packet, bool clearPacket=true) {
-		for (int i = 0; i < Users.size(); ++i) {
-			sock.send(packet, Users[i].ip, Users[i].port);
-		}
-		if (clearPacket) {
-			packet.clear();
-		}
-	}
+	string currentKeyword;
+	string currentKeywordGuessed = "";
+	string currentClue;
+	vector<pair<string, string>> keywordsNClues;
+	int currentTurnUser = 0;
+	int currentTurn = 0;
+	bool canGuessKeyword;
 
 	//Other func
+	void ReadFromDatabase() {
+		string databaseFile = "database.txt";
+		ifstream file(databaseFile);
+		int n = 0;
+		file >> n;
+		for (int i = 0; i < n; ++i) {
+			string keyword, clue;
+			file >> keyword;
+			getline(file, clue);
+			getline(file, clue);
+			keywordsNClues.emplace_back(keyword, clue);
+		}
+		for (int i = 0; i < n; ++i) {
+			cout << keywordsNClues[i].first << ": " << keywordsNClues[i].second << endl;
+		}
+		file.close();
+	}
 	bool IsDuplicateUsername(string username) {
 		for (int i = 0; i < Users.size(); ++i) {
 			if (username == Users[i].username) {
@@ -73,71 +79,49 @@ namespace Server {
 		}
 		return false;
 	}	
-	void randomSet() {
-		num1 = rand() % 20002 - 10001;
-		num2 = rand() % 20002 - 10001;
-		int op = rand() % 5;
-		switch (op) {
-		case 0:
-			operation = "+";
-			break;
-		case 1:
-			operation = "-";
-			break;
-		case 2:
-			operation = "*";
-			break;
-		case 3:
-			operation = "/";
-			break;
-		case 4:
-			operation = "%";
-			break;
-		default:
-			break;
+	void GetRandomKeywordNClue() {
+		int ind = rand() % keywordsNClues.size();
+		currentKeyword = keywordsNClues[ind].first;
+		for (int i = 0; i < currentKeyword.length(); ++i) {
+			currentKeywordGuessed += ".";
 		}
-	}
-	void CheckReceivedFromAllClients() {
-		for (int i = 0; i < Users.size(); ++i) {
-			if (Users[i].answer == 100000001) {
-				return;
-			}
-		}
-		cout << "Received from all clients" << endl;
-		gameState = PROCESS_LAST_ROUND;
-	}	
-	void CalculateAnswer() {
-		if (operation == "+") {
-			answer = num1 + num2;
-		}
-		else if (operation == "-") {
-			answer = num1 - num2;
-		}
-		else if (operation == "*") {
-			answer = num1 * num2;
-		}
-		else if (operation == "/") {
-			answer = num1 / num2;
-		}
-		else if (operation == "%") {
-			answer = num1 % num2;
-		}
-		cout << "ans: " << answer << endl;
+		currentClue = keywordsNClues[ind].second;
+		cout << "keyword for this game: " << currentKeyword << " " << currentKeywordGuessed << " " << currentClue;
 	}
 	void PrintCurrentProgress() {
-		for (int i = 0; i < Users.size(); ++i) {
+	/*	for (int i = 0; i < Users.size(); ++i) {
 			cout << setw(10) << Users[i].username << " | " << setw(10) << Users[i].answer << " | " << Users[i].currentPos << endl;
-		}
+		}*/
 	}
 	bool SomeoneWon() {
-		for (int i = 0; i < Users.size(); ++i) {
-			if (Users[i].currentPos >= raceLength) {
-				return true;
-			}
-		}
+
 		return false;
 	}
 
+	//Network func
+	void LaunchServer() {
+		ip = IpAddress::getLocalAddress();
+		port = sock.getLocalPort();
+		sock.bind(port); // first bind gives erroneous port 0 
+		port = sock.getLocalPort();
+		sock.bind(port); // normal port
+
+		cout << ip.toString() << endl << port << endl; // ip / port
+		launchTime = chrono::system_clock::now();
+		ReadFromDatabase();
+		gameState = RECEIVE_REGISTRATION;
+	}
+	void Broadcast(Packet packet, bool clearPacket = true) {
+		for (int i = 0; i < Users.size(); ++i) {
+			sock.send(packet, Users[i].ip, Users[i].port);
+		}
+		if (clearPacket) {
+			packet.clear();
+		}
+	}
+	void BroadcastCurrentRound() {
+
+	}
 
 	void ReceiveRegistration() {
 		if (sock.receive(packet, clientIP, clientPort) == Socket::Done) {
@@ -177,143 +161,135 @@ namespace Server {
 		packet.clear();
 		packet << "Game" << "Start";
 		Broadcast(packet);
-
+		
+		GetRandomKeywordNClue();
 		packet.clear();
-		raceLength = rand() % 22 + 4; //length = {4..25}
-		cout << "Race length: " << raceLength << endl;
-		packet << "Game" << "UpdateRaceLength" << to_string(raceLength);
+		packet << "Game" << "UpdateKeyword" << to_string(currentKeyword.length()) << currentKeywordGuessed << currentClue;
 		Broadcast(packet);
 
 		packet.clear();
-		packet << "Game" << "UpdatePos" << to_string(1);
+		packet << "Game" << "CurrentTurn" << Users[currentTurnUser].username;
 		Broadcast(packet);
-
-		randomSet();
 		packet.clear();
-		packet << "Game" << "UpdateSet" << to_string(num1) << to_string(num2) << operation;
-		Broadcast(packet);
+		packet << "Game" << "YourTurn";
+		sock.send(packet, Users[currentTurnUser].ip, Users[currentTurnUser].port);
+		packet.clear();
 
-		receivedOrder = 0;
 		gameState = WAIT_FOR_CLIENTS;
 	}
 
 	void NewRound() {
-		randomSet();
 		packet.clear();
-		packet << "Game" << "UpdateSet" << to_string(num1) << to_string(num2) << operation;
+		packet << "Game" << "CurrentTurn" << Users[currentTurnUser].username;
 		Broadcast(packet);
-		receivedOrder = 0;
+		packet.clear();
+		packet << "Game" << "YourTurn";
+		sock.send(packet, Users[currentTurnUser].ip, Users[currentTurnUser].port);
+		packet.clear();
 		gameState = WAIT_FOR_CLIENTS;
 	}
 
 	void WaitForClients() {
 		if (sock.receive(packet, clientIP, clientPort) == Socket::Done) {
-			string type;
-			packet >> type;
-			if (type == "Game") {
-				string status;
-				packet >> status;
-				if (status == "UserAns") {
-					string ans;
-					packet >> ans;
-					for (int i = 0; i < Users.size(); ++i) {
-						if (Users[i].port == clientPort && Users[i].ip == clientIP) {
-							Users[i].answer = stoi(ans);
-							Users[i].receivedOrder = receivedOrder;
-							receivedOrder++;
-							cout << "Received " << ans << " from " << Users[i].username << endl;
-							break;
+			if (clientIP == Users[currentTurnUser].ip && clientPort == Users[currentTurnUser].port) {
+				string type;
+				packet >> type;
+				if (type == "Game") {
+					string status;
+					packet >> status;
+					if (status == "UserAns") {
+						string ansChar;
+						string ansKeyword;
+						packet >> ansChar >> ansKeyword;
+						if (ansChar.length() > 0) {
+							Users[currentTurnUser].answerChar = ansChar[0];
 						}
+						else {
+							Users[currentTurnUser].answerChar = '\0';
+						}
+						
+						Users[currentTurnUser].answerKeyword = ansKeyword;
+						cout << "Received " << ansChar << " and " << ansKeyword << " from " << Users[currentTurnUser].username << endl;
+
+						packet.clear();
+						packet << "Game" << "UpdateUserAns" << ansChar;
+						if (currentTurnUser >= 2) {
+							packet << ansKeyword;
+						}
+						Broadcast(packet);
+						gameState = PROCESS_LAST_ROUND;
 					}
 				}
 			}
 		}
-		CheckReceivedFromAllClients();
 	}
 
 	void ProcessLastRound() {
-		int fastestClient = 9;
-		CalculateAnswer();
-		packet.clear();
-		packet << "Game" << "Answer" << to_string(answer);
-		Broadcast(packet);
-		int wrongCount = 0;
-		//count amount of wrong, and get fastest client
-		for (int i = 0; i < Users.size(); ++i) {
-			if (Users[i].answer != answer) {
-				wrongCount++;
-				Users[i].wrongAmount++;
-				Users[i].currentPos = max(Users[i].currentPos - 1, 1);
-			}
-			else {
-				if (Users[i].receivedOrder != -1 && Users[i].receivedOrder < fastestClient) {
-					fastestClient = Users[i].receivedOrder;
-				}
+		bool guessedCorrect = false;
+		for (int i = 0; i < currentKeyword.length(); ++i) {
+			if (currentKeyword[i] == Users[currentTurnUser].answerChar && currentKeywordGuessed[i] == '.') {
+				currentKeywordGuessed[i] = Users[currentTurnUser].answerChar;
+				guessedCorrect = true;
 			}
 		}
-		//update points for those who got it right
-		for (int i = 0; i < Users.size(); ++i) {
-			if (Users[i].answer == answer) {
-				if (Users[i].receivedOrder == fastestClient) {
-					if (wrongCount == 0) {
-						wrongCount = 1;
-					}
-					Users[i].currentPos += wrongCount;
-				}
-				else {
-					Users[i].currentPos += 1;
-				}
-			}
-		}
-		//check if someone lost the game
-		for (int i = 0; i < Users.size(); ++i) {
-			if (Users[i].wrongAmount >= 3) {
-				packet.clear();
-				packet << "Game" << "End" << "Lose";
-				sock.send(packet, Users[i].ip, Users[i].port);
-				packet.clear();
-				Users.erase(Users.begin() + i);
-				break;
-			}
-		}
-
-		PrintCurrentProgress();
-
-		for (int i = 0; i < Users.size(); ++i) {
-			Users[i].answer = 100000001;
-			Users[i].receivedOrder = -1;
-		}
-
-		for (int i = 0; i < Users.size(); ++i) {
+		if (guessedCorrect) {
 			packet.clear();
-			packet << "Game" << "UpdatePos" << to_string(Users[i].currentPos);
-			sock.send(packet, Users[i].ip, Users[i].port);
-		}
+			packet << "Game" << "UpdateUserAnsResult" << "Right";
+			Broadcast(packet);
 
-		if (SomeoneWon()) {
-			gameState = GAME_END;
+			packet.clear();
+			Users[currentTurnUser].currentPoint++;
+			packet << "Game" << "UpdatePoint" << to_string(Users[currentTurnUser].currentPoint);
+			sock.send(packet, Users[currentTurnUser].ip, Users[currentTurnUser].port);
+			packet.clear();
 		}
 		else {
-			gameState = NEW_ROUND;
+			packet.clear();
+			packet << "Game" << "UpdateUserAnsResult" << "Wrong";
+			Broadcast(packet);
+
+			packet.clear();
+			packet << "Game" << "UpdatePoint" << Users[currentTurnUser].currentPoint;
+			sock.send(packet, Users[currentTurnUser].ip, Users[currentTurnUser].port);
+			packet.clear();
 		}
+		packet.clear();
+		packet << "Game" << "UpdateKeyword" << to_string(currentKeyword.length()) << currentKeywordGuessed << currentClue;
+		Broadcast(packet);
+		
+		
+		
+		if (!guessedCorrect) {
+			currentTurnUser = (currentTurnUser + 1) % Users.size();
+		}
+
+		gameState = NEW_ROUND;
+
+		//check if someone lost the game
+		//for (int i = 0; i < Users.size(); ++i) {
+		//	if (Users[i].wrongAmount >= 3) {
+		//		packet.clear();
+		//		packet << "Game" << "End" << "Lose";
+		//		sock.send(packet, Users[i].ip, Users[i].port);
+		//		packet.clear();
+		//		Users.erase(Users.begin() + i);
+		//		break;
+		//	}
+		//}
+
+		//PrintCurrentProgress();
+
+		//if (SomeoneWon()) {
+		//	gameState = GAME_END;
+		//}
+		//else {
+		//	gameState = NEW_ROUND;
+		//}
 	}
 
 	void GameEnd() {
 		cout << "Game ended";
-		for (int i = 0; i < Users.size(); ++i) {
-			if (Users[i].currentPos >= raceLength) {
-				packet.clear();
-				packet << "Game" << "End" << "Win";
-				sock.send(packet, Users[i].ip, Users[i].port);
-				packet.clear();
-			}
-			else {
-				packet.clear();
-				packet << "Game" << "End" << "Lose";
-				sock.send(packet, Users[i].ip, Users[i].port);
-				packet.clear();
-			}
-		}
+
 	}
 
 	void MainLoop() {

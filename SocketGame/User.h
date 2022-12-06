@@ -6,9 +6,11 @@ struct User
 	string password;
 	IpAddress ip;
 	unsigned short port;
-	int currentPos = 1;
-	bool isActive = 0;
-	int answer = 100000001;
+
+	int currentPoint = 0;
+	//bool isActive = 0;
+	char answerChar = '\0';
+	string answerKeyword = "";
 	int receivedOrder = -1;
 	int wrongAmount = 0;
 };

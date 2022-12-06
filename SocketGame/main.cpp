@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <iomanip>
+#include <utility>
 
 using namespace std;
 using namespace sf;
@@ -14,8 +15,7 @@ using namespace sf;
 #include "Client.h"
 #include "Server.h"
 
-int main()
-{
+int main() {
 	char ct = 'S';
 	cout << "[S]erver / [C]lient?\n";
 	cin >> ct;

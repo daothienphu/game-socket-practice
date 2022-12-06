@@ -26,12 +26,14 @@ namespace Client {
 	string password;
 
 	//Game vars
-	int raceLength = 3;
+	int keywordLength;
+	string keywordGuessed;
+	string clue;
 	GameState gameState;
-	int currentPos = 0;
-	int num1;
-	int num2;
-	string operation;
+	int currentPoint = 0;
+	string currentTurnUsername;
+	string userChar;
+	string userKeyword;
 
 	void LaunchClient() {
 		port = sock.getLocalPort();
@@ -119,29 +121,42 @@ namespace Client {
 				string status;
 				packet >> status;
 				if (status == "Start") {
-					cout << "game start" << endl;
+					cout << "Game start" << endl;
 				}
-				else if (status == "UpdateRaceLength") {
-					string length;
-					packet >> length;
-					raceLength = stoi(length);
+				else if (status == "YourTurn") {
+					cout << "My turn now" << endl;
+					gameState = WAIT_FOR_INPUT;
 				}
-				else if (status == "UpdatePos") {
-					string pos;
-					packet >> pos;
-					currentPos = stoi(pos);
+				else if (status == "CurrentTurn") {
+					packet >> currentTurnUsername;
+					cout << "User " << currentTurnUsername << "'s turn" << endl;
 				}
-				else if (status == "UpdateSet") {
+				else if (status == "UpdateUserAns") {
+					packet >> userChar;
+					//check turn > 2 to update userKeyword; 
+					cout << "User " << currentTurnUsername << " guessed " << userChar << endl;
+				}
+				else if (status == "UpdateUserAnsResult") {
+					string verdict;
+					packet >> verdict;
+					if (verdict == "Wrong") {
+						cout << "User " << currentTurnUsername << " guessed wrong" << endl;
+					}
+					else if (verdict == "Right") {
+						cout << "User " << currentTurnUsername << " guessed right" << endl;
+					}
+				}
+				else if (status == "UpdateKeyword") {
+					string len;
+					packet >> len >> keywordGuessed >> clue;
+					keywordLength = stoi(len);
+					cout << "Received keyword length, guessed, and clue: " << keywordLength << " " << keywordGuessed << " " << clue << endl;
+				}
+				else if (status == "UpdatePoint") {
 					string temp;
 					packet >> temp;
-					num1 = stoi(temp);
-
-					temp = "";
-					packet >> temp;
-					num2 = stoi(temp);
-					packet >> operation;
-					cout << num1 << " " << operation << " " << num2 << " = ";
-					gameState = WAIT_FOR_INPUT;
+					currentPoint = stoi(temp);
+					cout << "currentPoint " << currentPoint << endl;
 				}
 				else if (status == "End") {
 					string winlose;
@@ -159,11 +174,14 @@ namespace Client {
 	}
 
 	void WaitForInput() {
-		string input;
-		cin >> input;
+		string guessChar, guessKeyword;
+		cout << "guess a character: ";
+		cin >> guessChar;
+		cout << "guess the keyword: ";
+		cin >> guessKeyword;
 		
 		packet.clear();
-		packet << "Game" << "UserAns" << input;
+		packet << "Game" << "UserAns" << guessChar << guessKeyword;
 		sock.send(packet, serverIP, serverPort);
 		packet.clear();
 		gameState = WAIT_FOR_SERVER;
